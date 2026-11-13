@@ -27,7 +27,7 @@ begin
     if not exists (
       select 1
       from pg_publication_tables
-      where publication_name = 'supabase_realtime'
+      where pubname = 'supabase_realtime'
         and schemaname = 'public'
         and tablename = table_name
     ) then
@@ -146,7 +146,7 @@ begin
     if not exists (
       select 1
       from pg_publication_tables
-      where publication_name = 'supabase_realtime'
+      where pubname = 'supabase_realtime'
         and schemaname = 'public'
         and tablename = table_name
     ) then
