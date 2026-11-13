@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { BuildingOffice2Icon, HomeModernIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import PengaduanWargaCard from './PengaduanWargaCard';
 import ModalDetailPengaduanWarga from './ModalDetailPengaduanWarga';
-import { filterCommunityComplaints } from '../data/pengaduanWargaData';
+import { filterCommunityComplaints } from '../data/communityData';
 import { useApp } from '../context/AppContext';
 
 const EMPTY_COMPLAINTS = [];

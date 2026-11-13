@@ -1,31 +1,24 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useToast } from '../components/Toast';
 import { useApp } from '../context/AppContext';
-import {
-  getDaftarProvinsi,
-  getDaftarKabupaten,
-  getDaftarKecamatan,
-  getDistrictByName,
-  getVillagesByDistrict,
-  validateRegionSelection,
-  opsiRTRW,
-} from '../data/wilayahData';
+import { listRegions } from '../services/regions';
+import { listCategories } from '../services/sigapData';
 
 export default function FormPengaduan() {
   const navigate = useNavigate();
-  const { user, handleLogout, tambahPengaduan } = useApp();
+  const { user, handleLogout, tambahPengaduan, dataRevision, regionRevision } = useApp();
   const { showToast, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
 
   // Wilayah default dari user yang sedang login
-  const userProvince = user?.province || 'Jawa Barat';
-  const userRegency = user?.regency || 'Sukabumi';
-  const userDistrict = user?.district || 'Kalapanunggal';
-  const userVillage = user?.village || 'Kalapanunggal';
-  const userRw = user?.rw || '02';
-  const userRt = user?.rt || '03';
+  const userProvince = user?.province_code || '';
+  const userRegency = user?.regency_code || '';
+  const userDistrict = user?.district_code || '';
+  const userVillage = user?.village_code || '';
+  const userRw = user?.rw || '';
+  const userRt = user?.rt || '';
 
   const [bedaWilayah, setBedaWilayah] = useState(false);
   const [form, setForm] = useState({
@@ -41,16 +34,64 @@ export default function FormPengaduan() {
     rt: userRt,
   });
   const [errors, setErrors] = useState({});
+  const [regionOptions, setRegionOptions] = useState({ provinces: [], regencies: [], districts: [], villages: [] });
+  const [regionError, setRegionError] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [categoryError, setCategoryError] = useState('');
 
-  const daftarProvinsi = getDaftarProvinsi();
-  const daftarKabupaten = form.province ? getDaftarKabupaten(form.province) : [];
-  const daftarKecamatan = form.province && form.regency ? getDaftarKecamatan(form.province, form.regency) : [];
-  const selectedDistrict = form.province && form.regency && form.district
-    ? getDistrictByName(form.district, form.regency, form.province)
-    : null;
-  const daftarDesa = selectedDistrict
-    ? getVillagesByDistrict(selectedDistrict.code || selectedDistrict.id).map((village) => village.name)
-    : [];
+  useEffect(() => {
+    let active = true;
+    listRegions('province')
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, provinces: regions })); })
+      .catch((error) => { if (active) setRegionError(error.message); });
+    return () => { active = false; };
+  }, [regionRevision]);
+
+  useEffect(() => {
+    let active = true;
+    listCategories()
+      .then((rows) => { if (active) setCategories(rows); })
+      .catch((error) => { if (active) setCategoryError(error.message); });
+    return () => { active = false; };
+  }, [dataRevision]);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.province) {
+      setRegionOptions((current) => ({ ...current, regencies: [], districts: [], villages: [] }));
+      return () => { active = false; };
+    }
+    listRegions('regency', form.province)
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, regencies: regions })); })
+      .catch((error) => { if (active) setRegionError(error.message); });
+    return () => { active = false; };
+  }, [form.province, regionRevision]);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.regency) {
+      setRegionOptions((current) => ({ ...current, districts: [], villages: [] }));
+      return () => { active = false; };
+    }
+    listRegions('district', form.regency)
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, districts: regions })); })
+      .catch((error) => { if (active) setRegionError(error.message); });
+    return () => { active = false; };
+  }, [form.regency, regionRevision]);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.district) {
+      setRegionOptions((current) => ({ ...current, villages: [] }));
+      return () => { active = false; };
+    }
+    listRegions('village', form.district)
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, villages: regions })); })
+      .catch((error) => { if (active) setRegionError(error.message); });
+    return () => { active = false; };
+  }, [form.district, regionRevision]);
+
+  const regionName = (list, code) => list.find((region) => region.code === code)?.name || '';
 
   // Upload foto
   const fileInputRef = useRef(null);
@@ -68,6 +109,7 @@ export default function FormPengaduan() {
       showToast('Beberapa foto melebihi 5MB dan tidak ditambahkan.', 'error');
     }
     const newFotos = valid.map((f) => ({
+      file: f,
       name: f.name,
       size: (f.size / 1024).toFixed(0) + ' KB',
       url: URL.createObjectURL(f),
@@ -88,32 +130,38 @@ export default function FormPengaduan() {
     if (!form.rt) e.rt = 'RT wajib dipilih.';
     if (!form.deskripsi.trim()) e.deskripsi = 'Deskripsi wajib diisi.';
     else if (form.deskripsi.trim().length < 20) e.deskripsi = 'Deskripsi minimal 20 karakter.';
-    if (form.village && !validateRegionSelection(form).village) {
+    if (form.village && !regionOptions.villages.some((village) => village.code === form.village)) {
       e.village = 'Desa/Kelurahan tidak sesuai dengan Kecamatan yang dipilih.';
     }
     return e;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
       const payload = {
         ...form,
+        provinceCode: form.province,
+        regencyCode: form.regency,
+        districtCode: form.district,
+        villageCode: form.village,
         title: form.judul,
         category: form.kategori,
         description: form.deskripsi,
-        lokasiUmum: `RT ${form.rt} / RW ${form.rw}`,
-        lokasi: `RT ${form.rt} / RW ${form.rw}, ${form.village}${form.detailLokasi ? ' (' + form.detailLokasi + ')' : ''}`,
+        locationDetail: `RT ${form.rt} / RW ${form.rw}${form.detailLokasi ? `, ${form.detailLokasi}` : ''}`,
       };
-      tambahPengaduan(payload, fotoList);
+      await tambahPengaduan(payload, fotoList);
       setLoading(false);
-      showToast('Pengaduan berhasil dikirim! Tim kami akan segera menindaklanjuti.', 'success');
-      setTimeout(() => navigate('/dashboard'), 1500);
-    }, 800);
+      showToast('Pengaduan berhasil dikirim ke database.', 'success');
+      setTimeout(() => navigate('/dashboard'), 1200);
+    } catch (error) {
+      setLoading(false);
+      showToast(`Pengaduan gagal dikirim: ${error.message}`, 'error');
+    }
   };
 
   return (
@@ -152,14 +200,10 @@ export default function FormPengaduan() {
               <select name="kategori" value={form.kategori} onChange={handleChange}
                 className={`input-field ${errors.kategori ? 'border-red-400 focus:ring-red-400' : ''}`}>
                 <option value="">Pilih kategori...</option>
-                <option>Infrastruktur</option>
-                <option>Pelayanan Publik</option>
-                <option>Lingkungan</option>
-                <option>Keamanan</option>
-                <option>Sosial</option>
-                <option>Pendidikan</option>
+                {categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
               </select>
               {errors.kategori && <p className="text-xs text-red-500 mt-1">{errors.kategori}</p>}
+              {categoryError && <p className="text-xs text-red-500 mt-1">Kategori gagal dimuat: {categoryError}</p>}
             </div>
 
             {/* Section: Lokasi Pengaduan */}
@@ -199,13 +243,18 @@ export default function FormPengaduan() {
                   <span>Lokasi berbeda dari wilayah saya</span>
                 </label>
               </div>
+              {regionError && (
+                <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  Master data wilayah gagal dimuat: {regionError}
+                </p>
+              )}
 
               {!bedaWilayah ? (
                 /* Tampilan default wilayah user */
                 <div className="bg-white p-3.5 rounded-lg border border-gray-200 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div>
                     <span className="text-gray-400 block">Desa/Kelurahan</span>
-                    <strong className="text-gray-800 text-sm">{form.village}</strong>
+                    <strong className="text-gray-800 text-sm">{regionName(regionOptions.villages, form.village)}</strong>
                   </div>
                   <div>
                     <span className="text-gray-400 block">RW</span>
@@ -217,7 +266,7 @@ export default function FormPengaduan() {
                   </div>
                   <div>
                     <span className="text-gray-400 block">Kecamatan & Kota</span>
-                    <strong className="text-gray-800 text-sm">{form.district}, {form.regency}</strong>
+                    <strong className="text-gray-800 text-sm">{regionName(regionOptions.districts, form.district)}, {regionName(regionOptions.regencies, form.regency)}</strong>
                   </div>
                 </div>
               ) : (
@@ -241,8 +290,8 @@ export default function FormPengaduan() {
                         className="input-field text-sm !py-2 cursor-pointer bg-white"
                       >
                         <option value="">Pilih Provinsi...</option>
-                        {daftarProvinsi.map((prov) => (
-                          <option key={prov} value={prov}>{prov}</option>
+                        {regionOptions.provinces.map((prov) => (
+                          <option key={prov.code} value={prov.code}>{prov.name}</option>
                         ))}
                       </select>
                     </div>
@@ -264,8 +313,8 @@ export default function FormPengaduan() {
                         className="input-field text-sm !py-2 cursor-pointer bg-white disabled:bg-gray-100 disabled:text-gray-400"
                       >
                         <option value="">Pilih Kabupaten/Kota...</option>
-                        {daftarKabupaten.map((kab) => (
-                          <option key={kab} value={kab}>{kab}</option>
+                        {regionOptions.regencies.map((kab) => (
+                          <option key={kab.code} value={kab.code}>{kab.name}</option>
                         ))}
                       </select>
                     </div>
@@ -288,8 +337,8 @@ export default function FormPengaduan() {
                         className="input-field text-sm !py-2 cursor-pointer bg-white disabled:bg-gray-100 disabled:text-gray-400"
                       >
                         <option value="">Pilih Kecamatan...</option>
-                        {daftarKecamatan.map((kec) => (
-                          <option key={kec} value={kec}>{kec}</option>
+                        {regionOptions.districts.map((kec) => (
+                          <option key={kec.code} value={kec.code}>{kec.name}</option>
                         ))}
                       </select>
                     </div>
@@ -306,8 +355,8 @@ export default function FormPengaduan() {
                         className="input-field text-sm !py-2 cursor-pointer bg-white disabled:bg-gray-100 disabled:text-gray-400"
                       >
                         <option value="">Pilih Desa/Kelurahan...</option>
-                        {daftarDesa.map((des) => (
-                          <option key={des} value={des}>{des}</option>
+                        {regionOptions.villages.map((des) => (
+                          <option key={des.code} value={des.code}>{des.name}</option>
                         ))}
                       </select>
                     </div>
@@ -323,7 +372,7 @@ export default function FormPengaduan() {
                         className="input-field text-sm !py-2 cursor-pointer bg-white"
                       >
                         <option value="">Pilih RW...</option>
-                        {opsiRTRW.map((no) => (
+                        {Array.from({ length: 20 }, (_, i) => String(i + 1).padStart(2, '0')).map((no) => (
                           <option key={no} value={no}>RW {no}</option>
                         ))}
                       </select>
@@ -338,7 +387,7 @@ export default function FormPengaduan() {
                         className="input-field text-sm !py-2 cursor-pointer bg-white"
                       >
                         <option value="">Pilih RT...</option>
-                        {opsiRTRW.map((no) => (
+                        {Array.from({ length: 20 }, (_, i) => String(i + 1).padStart(2, '0')).map((no) => (
                           <option key={no} value={no}>RT {no}</option>
                         ))}
                       </select>

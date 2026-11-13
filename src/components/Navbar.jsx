@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Cog6ToothIcon, MoonIcon, SunIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../context/ThemeContext';
+import { getRoleHomePath, isStaffRole } from '../utils/roles';
 
 function ThemeToggleButton({ theme, toggleTheme }) {
   const label = theme === 'dark' ? 'Aktifkan Light Mode' : 'Aktifkan Dark Mode';
@@ -31,9 +32,13 @@ export default function Navbar({ user, onLogout }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  const handleLogout = () => {
-    if (onLogout) onLogout();
-    navigate('/');
+  const handleLogout = async () => {
+    try {
+      if (onLogout) await onLogout();
+      navigate('/login');
+    } catch (error) {
+      window.alert(`Gagal keluar: ${error.message}`);
+    }
   };
 
   // Tutup dropdown saat klik di luar
@@ -52,7 +57,7 @@ export default function Navbar({ user, onLogout }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to={user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/'} className="flex items-center gap-2.5">
+          <Link to={user ? getRoleHomePath(user.role) : '/'} className="flex items-center gap-2.5">
             <div className="w-9 h-9 bg-primary-600 rounded-lg flex items-center justify-center shadow-sm">
               <span className="text-white font-bold text-base leading-none">S</span>
             </div>
@@ -97,7 +102,7 @@ export default function Navbar({ user, onLogout }) {
                       <p className="text-sm font-semibold text-gray-800 truncate">{user.name}</p>
                       <p className="text-xs text-gray-500 capitalize">{user.role}</p>
                     </div>
-                    {user.role === 'admin' ? (
+                    {isStaffRole(user.role) ? (
                       <>
                       <Link
                         to="/admin"
@@ -117,6 +122,24 @@ export default function Navbar({ user, onLogout }) {
                         <Cog6ToothIcon className="h-4 w-4 text-gray-400" aria-hidden="true" />
                         Pengaturan
                       </Link>
+                      {[
+                        ['/admin/pengaduan', 'Pengaduan'],
+                        ['/admin/aspirasi', 'Aspirasi'],
+                        ['/admin/warga', 'Warga'],
+                        ['/admin/kategori', 'Kategori'],
+                        ['/admin/laporan', 'Laporan'],
+                        ['/admin/profil', 'Profil Saya'],
+                      ].map(([to, label]) => (
+                        <Link
+                          key={to}
+                          to={to}
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <span className="h-4 w-4" aria-hidden="true" />
+                          {label}
+                        </Link>
+                      ))}
                       </>
                     ) : (
                       <>

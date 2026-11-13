@@ -1,16 +1,27 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useToast } from '../components/Toast';
 import { useApp } from '../context/AppContext';
+import { listCategories } from '../services/sigapData';
 
 export default function FormAspirasi() {
   const navigate = useNavigate();
-  const { user, handleLogout, tambahAspirasi } = useApp();
+  const { user, handleLogout, tambahAspirasi, dataRevision } = useApp();
   const { showToast, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ judul: '', kategori: '', deskripsi: '' });
   const [errors, setErrors] = useState({});
+  const [categories, setCategories] = useState([]);
+  const [categoryError, setCategoryError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    listCategories()
+      .then((rows) => { if (active) setCategories(rows); })
+      .catch((error) => { if (active) setCategoryError(error.message); });
+    return () => { active = false; };
+  }, [dataRevision]);
 
   // Upload lampiran
   const fileInputRef = useRef(null);
@@ -30,6 +41,7 @@ export default function FormAspirasi() {
     const newFiles = valid.map((f) => {
       const isImg = f.type.startsWith('image/');
       return {
+        file: f,
         name: f.name,
         size: (f.size / 1024).toFixed(0) + ' KB',
         type: isImg ? 'image' : 'doc',
@@ -53,18 +65,21 @@ export default function FormAspirasi() {
     return e;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
     setLoading(true);
-    setTimeout(() => {
-      tambahAspirasi(form, lampiranList);
+    try {
+      await tambahAspirasi(form, lampiranList);
       setLoading(false);
-      showToast('Aspirasi berhasil dikirim! Terima kasih atas kontribusi Anda.', 'success');
-      setTimeout(() => navigate('/dashboard'), 1500);
-    }, 900);
+      showToast('Aspirasi berhasil dikirim ke database.', 'success');
+      setTimeout(() => navigate('/dashboard'), 1200);
+    } catch (error) {
+      setLoading(false);
+      showToast(`Aspirasi gagal dikirim: ${error.message}`, 'error');
+    }
   };
 
   return (
@@ -101,14 +116,10 @@ export default function FormAspirasi() {
               <select name="kategori" value={form.kategori} onChange={handleChange}
                 className={`input-field ${errors.kategori ? 'border-red-400 focus:ring-red-400' : ''}`}>
                 <option value="">Pilih kategori...</option>
-                <option>Infrastruktur</option>
-                <option>Pelayanan Publik</option>
-                <option>Lingkungan</option>
-                <option>Keamanan</option>
-                <option>Sosial</option>
-                <option>Pendidikan</option>
+                {categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
               </select>
               {errors.kategori && <p className="text-xs text-red-500 mt-1">{errors.kategori}</p>}
+              {categoryError && <p className="text-xs text-red-500 mt-1">Kategori gagal dimuat: {categoryError}</p>}
             </div>
 
             <div>

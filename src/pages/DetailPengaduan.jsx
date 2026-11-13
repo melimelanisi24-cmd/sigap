@@ -1,8 +1,10 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import Navbar from '../components/Navbar';
-import { StatusBadge, PrioritasBadge } from '../components/UIComponents';
+import { StatusBadge } from '../components/UIComponents';
 import { formatTanggal } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
+import { isStaffRole } from '../utils/roles';
 
 // Timeline step icon berdasarkan status
 function TimelineIcon({ status }) {
@@ -36,15 +38,19 @@ function TimelineIcon({ status }) {
 export default function DetailPengaduan() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, handleLogout, pengaduanList, updateStatusPengaduan } = useApp();
-  const backPath = user?.role === 'admin' ? '/admin/pengaduan' : '/dashboard';
+  const { user, handleLogout, pengaduanList, updateStatusPengaduan, tarikPengaduan, addComplaintResponse } = useApp();
+  const [response, setResponse] = useState('');
+  const [responseError, setResponseError] = useState('');
+  const [responseSaving, setResponseSaving] = useState(false);
+  const isStaff = isStaffRole(user?.role);
+  const backPath = isStaff ? '/admin/pengaduan' : '/dashboard';
 
   const pengaduan = pengaduanList.find((p) => p.id === id);
 
   if (!pengaduan) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        {user?.role !== 'admin' && <Navbar user={user} onLogout={handleLogout} />}
+        {!isStaff && <Navbar user={user} onLogout={handleLogout} />}
         <main className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
           <span className="text-6xl">🔍</span>
           <h2 className="text-xl font-bold text-gray-800">Pengaduan Tidak Ditemukan</h2>
@@ -58,18 +64,18 @@ export default function DetailPengaduan() {
   }
 
   // Hitung progres berdasarkan status
-  const stepMap = { menunggu: 1, diproses: 2, selesai: 3, ditolak: 1 };
-  const currentStep = stepMap[pengaduan.status] || 1;
+  const stepMap = { baru: 1, diverifikasi: 2, diproses: 2, selesai: 3, ditolak: 1 };
+  const currentStep = stepMap[pengaduan.dbStatus] || 1;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {user?.role !== 'admin' && <Navbar user={user} onLogout={handleLogout} />}
+      {!isStaff && <Navbar user={user} onLogout={handleLogout} />}
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
           <Link to={backPath} className="hover:text-primary-600 transition-colors">
-            {user?.role === 'admin' ? 'Data Pengaduan' : 'Dashboard'}
+            {isStaff ? 'Data Pengaduan' : 'Dashboard'}
           </Link>
           <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -82,12 +88,11 @@ export default function DetailPengaduan() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-mono text-gray-400 mb-1">{pengaduan.id}</p>
+              <p className="text-xs font-mono text-gray-400 mb-1">{pengaduan.complaintCode}</p>
               <h1 className="text-xl font-bold text-gray-900 leading-snug">{pengaduan.judul}</h1>
             </div>
             <div className="flex flex-wrap gap-2 flex-shrink-0">
-              <StatusBadge status={pengaduan.status} />
-              <PrioritasBadge prioritas={pengaduan.prioritas} />
+              <StatusBadge status={isStaff && pengaduan.dbStatus === 'baru' ? 'Menunggu Verifikasi' : isStaff && pengaduan.status === 'Dalam Proses' ? 'Sedang Diproses' : pengaduan.status} />
             </div>
           </div>
 
@@ -217,6 +222,20 @@ export default function DetailPengaduan() {
               </div>
             )}
 
+            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <h2 className="font-bold text-gray-800 mb-4">Tanggapan Pemerintah Desa</h2>
+              {pengaduan.responses?.length ? (
+                <div className="space-y-3">
+                  {pengaduan.responses.map((item) => (
+                    <article key={item.id} className="rounded-xl border border-primary-100 bg-primary-50/50 p-4">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.response}</p>
+                      <p className="mt-2 text-xs text-gray-500">{item.adminName} · {formatTanggal(item.createdAt)}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : <p className="text-sm text-gray-500">Belum ada tanggapan resmi.</p>}
+            </section>
+
             {/* Timeline */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h2 className="font-bold text-gray-800 mb-5 flex items-center gap-2">
@@ -269,7 +288,7 @@ export default function DetailPengaduan() {
                     <p className="text-xs text-gray-400">Warga</p>
                   </div>
                 </div>
-                {user?.role === 'admin' && (
+                {isStaff && (
                   <>
                     <div className="flex items-center gap-2 text-sm text-gray-600 pt-1">
                       <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -289,37 +308,60 @@ export default function DetailPengaduan() {
             </div>
 
             {/* Aksi Admin */}
-            {user?.role === 'admin' && (
+            {isStaff && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <h2 className="font-bold text-gray-800 mb-4">Ubah Status</h2>
                 <div className="space-y-2">
                   <button
-                    onClick={() => updateStatusPengaduan(pengaduan.id, 'diproses')}
-                    disabled={pengaduan.status === 'diproses' || pengaduan.status === 'selesai'}
+                    onClick={() => updateStatusPengaduan(pengaduan.id, 'diproses').catch((error) => window.alert(`Status gagal diperbarui: ${error.message}`))}
+                    disabled={pengaduan.dbStatus === 'diproses' || pengaduan.dbStatus === 'selesai'}
                     className="w-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-200 py-2.5 rounded-xl hover:bg-blue-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ⚙️ Tandai Diproses
                   </button>
                   <button
-                    onClick={() => updateStatusPengaduan(pengaduan.id, 'selesai')}
-                    disabled={pengaduan.status === 'selesai'}
+                    onClick={() => updateStatusPengaduan(pengaduan.id, 'selesai').catch((error) => window.alert(`Status gagal diperbarui: ${error.message}`))}
+                    disabled={pengaduan.dbStatus === 'selesai'}
                     className="w-full text-sm font-medium bg-green-50 text-green-700 border border-green-200 py-2.5 rounded-xl hover:bg-green-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ✅ Tandai Selesai
                   </button>
                   <button
-                    onClick={() => updateStatusPengaduan(pengaduan.id, 'ditolak')}
-                    disabled={pengaduan.status === 'ditolak'}
+                    onClick={() => updateStatusPengaduan(pengaduan.id, 'ditolak').catch((error) => window.alert(`Status gagal diperbarui: ${error.message}`))}
+                    disabled={pengaduan.dbStatus === 'ditolak'}
                     className="w-full text-sm font-medium bg-red-50 text-red-700 border border-red-200 py-2.5 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ✕ Tolak Pengaduan
                   </button>
                 </div>
+                <form
+                  className="mt-5 border-t border-gray-100 pt-4"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    setResponseError('');
+                    setResponseSaving(true);
+                    try {
+                      await addComplaintResponse(pengaduan.id, response);
+                      setResponse('');
+                    } catch (error) {
+                      setResponseError(error.message);
+                    } finally {
+                      setResponseSaving(false);
+                    }
+                  }}
+                >
+                  <label htmlFor="official-response" className="mb-2 block text-sm font-semibold text-gray-700">Tanggapan resmi</label>
+                  <textarea id="official-response" value={response} onChange={(event) => setResponse(event.target.value)} rows="4" maxLength="5000" required className="input-field resize-y" />
+                  {responseError && <p className="mt-2 text-xs text-red-600" role="alert">{responseError}</p>}
+                  <button type="submit" disabled={responseSaving || !response.trim()} className="btn-primary mt-3 w-full text-sm disabled:opacity-50">
+                    {responseSaving ? 'Mengirim...' : 'Kirim Tanggapan'}
+                  </button>
+                </form>
               </div>
             )}
 
             {/* Aksi Warga */}
-            {user?.role !== 'admin' && (
+            {!isStaff && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <h2 className="font-bold text-gray-800 mb-4">Aksi</h2>
                 <div className="space-y-2">
@@ -330,19 +372,23 @@ export default function DetailPengaduan() {
                     🖨️ Cetak Laporan
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (window.confirm('Apakah Anda yakin ingin menarik pengaduan ini?')) {
-                        updateStatusPengaduan(pengaduan.id, 'ditolak', 'Pengaduan ditarik oleh pelapor.', user?.name || 'Warga');
-                        navigate('/dashboard');
+                        try {
+                          await tarikPengaduan(pengaduan.id);
+                          navigate('/dashboard');
+                        } catch (error) {
+                          window.alert(`Pengaduan gagal ditarik: ${error.message}`);
+                        }
                       }
                     }}
-                    disabled={pengaduan.status !== 'menunggu'}
+                    disabled={pengaduan.dbStatus !== 'baru'}
                     className="w-full text-sm font-medium bg-red-50 text-red-700 border border-red-200 py-2.5 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     🗑️ Tarik Pengaduan
                   </button>
                 </div>
-                {pengaduan.status !== 'menunggu' && (
+                {pengaduan.dbStatus !== 'baru' && (
                   <p className="text-xs text-gray-400 mt-2 text-center">
                     Pengaduan yang sedang diproses tidak dapat ditarik.
                   </p>

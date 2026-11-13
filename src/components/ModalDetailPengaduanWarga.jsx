@@ -1,8 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getStatusWilayahBadge, kategoriConfig } from '../data/pengaduanWargaData';
+import { getStatusWilayahBadge, kategoriConfig } from '../data/communityData';
+import { useApp } from '../context/AppContext';
 import { formatTanggal } from '../utils/helpers';
 
-export default function ModalDetailPengaduanWarga({ item, onClose }) {
+const EMPTY_COMMENTS = [];
+
+export default function ModalDetailPengaduanWarga({ item: selectedItem, onClose }) {
+  const {
+    user,
+    pengaduanList,
+    addComplaintComment,
+    reportComment,
+    reactToComplaint,
+  } = useApp();
+  const item = pengaduanList.find((complaint) => complaint.id === selectedItem?.id) || selectedItem;
+  const comments = item?.comments || EMPTY_COMMENTS;
+  const hasReacted = item?.reactionUserIds?.includes(user?.id) || false;
+  const reactionCount = item?.reactions || 0;
   // Tutup dengan tombol Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -18,12 +32,13 @@ export default function ModalDetailPengaduanWarga({ item, onClose }) {
     badge: 'bg-gray-50 text-gray-700 border-gray-200',
   };
 
-  const [comments, setComments] = useState(() => item.comments || []);
   const [commentText, setCommentText] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [notice, setNotice] = useState('');
-  const [reactionCount, setReactionCount] = useState(() => item.reactions || 0);
-  const [hasReacted, setHasReacted] = useState(false);
+  const [noticeType, setNoticeType] = useState('success');
+  const [savingComment, setSavingComment] = useState(false);
+  const [reportingCommentId, setReportingCommentId] = useState(null);
+  const [savingReaction, setSavingReaction] = useState(false);
 
   const rootComments = useMemo(
     () => comments.filter((comment) => !comment.parentCommentId),
@@ -35,38 +50,54 @@ export default function ModalDetailPengaduanWarga({ item, onClose }) {
     return withoutHtml.replace(/\s+/g, ' ').trim().slice(0, 280);
   };
 
-  const handleSubmitComment = () => {
+  const handleSubmitComment = async () => {
     const cleanText = sanitizeComment(commentText);
     if (!cleanText) {
+      setNoticeType('error');
       setNotice('Komentar tidak boleh kosong.');
       return;
     }
-
-    const newComment = {
-      id: `COM-${Date.now()}`,
-      complaintId: item.id,
-      userId: 'USR_CURRENT',
-      displayName: 'Anda',
-      content: cleanText,
-      createdAt: new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }),
-      parentCommentId: replyTo || null,
-      reactions: 0,
-      reports: 0,
-    };
-
-    setComments((prev) => [...prev, newComment]);
-    setCommentText('');
-    setReplyTo(null);
-    setNotice('Comment berhasil ditambahkan.');
+    setSavingComment(true);
+    try {
+      await addComplaintComment(item.id, cleanText, replyTo);
+      setCommentText('');
+      setReplyTo(null);
+      setNoticeType('success');
+      setNotice('Komentar berhasil disimpan.');
+    } catch (error) {
+      setNoticeType('error');
+      setNotice(`Komentar gagal disimpan: ${error.message}`);
+    } finally {
+      setSavingComment(false);
+    }
   };
 
-  const handleReportComment = (commentId) => {
-    setComments((prev) =>
-      prev.map((comment) =>
-        comment.id === commentId ? { ...comment, reports: (comment.reports || 0) + 1 } : comment
-      )
-    );
-    setNotice('Komentar telah dilaporkan untuk ditinjau moderator.');
+  const handleReportComment = async (commentId) => {
+    setReportingCommentId(commentId);
+    try {
+      await reportComment(commentId);
+      setNoticeType('success');
+      setNotice('Komentar telah dilaporkan untuk ditinjau moderator.');
+    } catch (error) {
+      setNoticeType('error');
+      setNotice(`Komentar gagal dilaporkan: ${error.message}`);
+    } finally {
+      setReportingCommentId(null);
+    }
+  };
+
+  const handleReact = async () => {
+    setSavingReaction(true);
+    try {
+      await reactToComplaint(item.id, hasReacted);
+      setNoticeType('success');
+      setNotice(hasReacted ? 'Dukungan Anda dibatalkan.' : 'Terima kasih, dukungan Anda telah tercatat.');
+    } catch (error) {
+      setNoticeType('error');
+      setNotice(`Dukungan gagal disimpan: ${error.message}`);
+    } finally {
+      setSavingReaction(false);
+    }
   };
 
   if (!item) return null;
@@ -90,6 +121,7 @@ export default function ModalDetailPengaduanWarga({ item, onClose }) {
             <button
               type="button"
               onClick={() => handleReportComment(comment.id)}
+              disabled={reportingCommentId === comment.id}
               className="text-gray-400 hover:text-red-500 text-lg leading-none"
               aria-label="Laporkan komentar"
             >
@@ -101,7 +133,6 @@ export default function ModalDetailPengaduanWarga({ item, onClose }) {
             <button type="button" onClick={() => setReplyTo(comment.id)} className="hover:text-primary-600">
               Balas
             </button>
-            <span>👍 {comment.reactions || 0}</span>
           </div>
         </div>
 
@@ -298,16 +329,11 @@ export default function ModalDetailPengaduanWarga({ item, onClose }) {
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  if (!hasReacted) {
-                    setReactionCount((count) => count + 1);
-                    setHasReacted(true);
-                    setNotice('Terima kasih, dukungan Anda telah tercatat.');
-                  }
-                }}
+                onClick={handleReact}
+                disabled={savingReaction}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border transition ${
                   hasReacted ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-gray-200 text-gray-700 hover:border-primary-200'
-                }`}
+                } disabled:opacity-50`}
               >
                 <span>👍</span>
                 <span>{hasReacted ? `Kamu setuju · ${reactionCount} warga` : `${reactionCount} warga setuju`}</span>
@@ -352,14 +378,19 @@ export default function ModalDetailPengaduanWarga({ item, onClose }) {
                 <button
                   type="button"
                   onClick={handleSubmitComment}
-                  className="btn-primary !py-2 !px-4 text-sm font-semibold"
+                  disabled={savingComment}
+                  className="btn-primary !py-2 !px-4 text-sm font-semibold disabled:opacity-50"
                 >
-                  Kirim
+                  {savingComment ? 'Menyimpan...' : 'Kirim'}
                 </button>
               </div>
 
               {notice && (
-                <p className="mt-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                <p className={`mt-3 text-xs rounded-lg px-3 py-2 ${
+                  noticeType === 'error'
+                    ? 'text-red-700 bg-red-50 border border-red-100'
+                    : 'text-emerald-700 bg-emerald-50 border border-emerald-100'
+                }`}>
                   {notice}
                 </p>
               )}

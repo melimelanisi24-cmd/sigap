@@ -1,46 +1,95 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useToast } from '../components/Toast';
 import { useApp } from '../context/AppContext';
-import {
-  getDaftarProvinsi,
-  getDaftarKabupaten,
-  getDaftarKecamatan,
-  getDistrictByName,
-  getVillagesByDistrict,
-  validateRegionSelection,
-  opsiRTRW,
-} from '../data/wilayahData';
+import { listRegions } from '../services/regions';
+import { getRoleHomePath } from '../utils/roles';
 
 export default function ProfilWarga() {
-  const { user, handleLogin, handleLogout } = useApp();
+  const { user, handleLogout, updateProfile, changePassword, regionRevision } = useApp();
   const currentUser = user;
   const { showToast, ToastContainer } = useToast();
 
   const [form, setForm] = useState({
-    name: currentUser?.name || 'Warga',
+    name: currentUser?.name || '',
     email: currentUser?.email || '',
-    phone: currentUser?.phone || '081234567890',
-    address: currentUser?.address || 'RT 03 / RW 02, Kalapanunggal',
-    nik: currentUser?.nik || '3201234567890001',
-    province: currentUser?.province || 'Jawa Barat',
-    regency: currentUser?.regency || 'Sukabumi',
-    district: currentUser?.district || 'Kalapanunggal',
-    village: currentUser?.village || 'Kalapanunggal',
-    rw: currentUser?.rw || '02',
-    rt: currentUser?.rt || '03',
+    phone: currentUser?.phone || '',
+    address: currentUser?.kampung || '',
+    nik: currentUser?.nik || '',
+    province: currentUser?.province_code || '',
+    regency: currentUser?.regency_code || '',
+    district: currentUser?.district_code || '',
+    village: currentUser?.village_code || '',
+    rw: currentUser?.rw || '',
+    rt: currentUser?.rt || '',
   });
 
-  const daftarProvinsi = getDaftarProvinsi();
-  const daftarKabupaten = form.province ? getDaftarKabupaten(form.province) : [];
-  const daftarKecamatan = form.province && form.regency ? getDaftarKecamatan(form.province, form.regency) : [];
-  const selectedDistrict = form.province && form.regency && form.district
-    ? getDistrictByName(form.district, form.regency, form.province)
-    : null;
-  const daftarDesa = selectedDistrict
-    ? getVillagesByDistrict(selectedDistrict.code || selectedDistrict.id).map((village) => village.name)
-    : [];
+  const [regionOptions, setRegionOptions] = useState({ provinces: [], regencies: [], districts: [], villages: [] });
+  const [regionError, setRegionError] = useState('');
+
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      name: currentUser?.name || '',
+      email: currentUser?.email || '',
+      phone: currentUser?.phone || '',
+      address: currentUser?.kampung || '',
+      nik: currentUser?.nik || '',
+      province: currentUser?.province_code || '',
+      regency: currentUser?.regency_code || '',
+      district: currentUser?.district_code || '',
+      village: currentUser?.village_code || '',
+      rw: currentUser?.rw || '',
+      rt: currentUser?.rt || '',
+    }));
+  }, [currentUser]);
+
+  useEffect(() => {
+    let active = true;
+    listRegions('province')
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, provinces: regions })); })
+      .catch((error) => { if (active) setRegionError(error.message); });
+    return () => { active = false; };
+  }, [regionRevision]);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.province) {
+      setRegionOptions((current) => ({ ...current, regencies: [], districts: [], villages: [] }));
+      return () => { active = false; };
+    }
+    listRegions('regency', form.province)
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, regencies: regions })); })
+      .catch((error) => { if (active) setRegionError(error.message); });
+    return () => { active = false; };
+  }, [form.province, regionRevision]);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.regency) {
+      setRegionOptions((current) => ({ ...current, districts: [], villages: [] }));
+      return () => { active = false; };
+    }
+    listRegions('district', form.regency)
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, districts: regions })); })
+      .catch((error) => { if (active) setRegionError(error.message); });
+    return () => { active = false; };
+  }, [form.regency, regionRevision]);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.district) {
+      setRegionOptions((current) => ({ ...current, villages: [] }));
+      return () => { active = false; };
+    }
+    listRegions('village', form.district)
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, villages: regions })); })
+      .catch((error) => { if (active) setRegionError(error.message); });
+    return () => { active = false; };
+  }, [form.district, regionRevision]);
+
+  const regionName = (list, code) => list.find((region) => region.code === code)?.name || '';
 
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -62,42 +111,25 @@ export default function ProfilWarga() {
     setPwErrors((prev) => ({ ...prev, [e.target.name]: '' }));
   };
 
-  const handleSaveProfil = (e) => {
+  const handleSaveProfil = async (e) => {
     e.preventDefault();
     if (!form.province || !form.regency || !form.district || !form.village || !form.rw || !form.rt) {
       showToast('Lengkapi informasi wilayah terlebih dahulu.', 'error');
       return;
     }
-    const validRegion = validateRegionSelection(form);
-    if (!validRegion.village) {
-      showToast('Desa/Kelurahan tidak sesuai dengan Kecamatan yang dipilih.', 'error');
-      return;
-    }
     setLoading(true);
-    setTimeout(() => {
-      const updatedUser = {
-        ...currentUser,
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
-        address: form.address,
-        province: form.province,
-        regency: form.regency,
-        district: form.district,
-        village: form.village,
-        rw: form.rw,
-        rt: form.rt,
-      };
-      if (currentUser && handleLogin) {
-        handleLogin(updatedUser);
-      }
+    try {
+      await updateProfile(form);
       setLoading(false);
       setEditMode(false);
       showToast('Profil dan informasi wilayah berhasil diperbarui!', 'success');
-    }, 600);
+    } catch (error) {
+      setLoading(false);
+      showToast(`Profil gagal disimpan: ${error.message}`, 'error');
+    }
   };
 
-  const handleChangePassword = (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
     const errors = {};
     if (!passwordForm.currentPassword) errors.currentPassword = 'Password saat ini wajib diisi.';
@@ -107,11 +139,15 @@ export default function ProfilWarga() {
     if (Object.keys(errors).length > 0) { setPwErrors(errors); return; }
 
     setPwLoading(true);
-    setTimeout(() => {
+    try {
+      await changePassword(passwordForm);
       setPwLoading(false);
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       showToast('Password berhasil diubah!', 'success');
-    }, 800);
+    } catch (error) {
+      setPwLoading(false);
+      showToast(`Password gagal diubah: ${error.message}`, 'error');
+    }
   };
 
   return (
@@ -122,7 +158,7 @@ export default function ProfilWarga() {
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Link to="/dashboard" className="hover:text-primary-600 transition-colors">Dashboard</Link>
+          <Link to={getRoleHomePath(currentUser?.role)} className="hover:text-primary-600 transition-colors">Dashboard</Link>
           <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
@@ -181,11 +217,8 @@ export default function ProfilWarga() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Email</label>
-                  {editMode ? (
-                    <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field" />
-                  ) : (
-                    <p className="font-medium text-gray-800 py-3 px-4 bg-gray-50 rounded-lg text-sm">{form.email}</p>
-                  )}
+                  <p className="font-medium text-gray-800 py-3 px-4 bg-gray-50 rounded-lg text-sm">{form.email}</p>
+                  {editMode && <p className="text-xs text-gray-400 mt-1">Email dikelola melalui autentikasi akun.</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">No. Telepon</label>
@@ -218,6 +251,11 @@ export default function ProfilWarga() {
                 Wilayah Administratif
               </span>
             </div>
+            {regionError && (
+              <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                Master data wilayah gagal dimuat: {regionError}
+              </p>
+            )}
             <p className="text-xs text-gray-500 mb-5">
               Wilayah administratif domisili Anda digunakan untuk menyaring dan menampilkan pengaduan dari warga di lingkungan yang sama.
             </p>
@@ -243,13 +281,13 @@ export default function ProfilWarga() {
                     className="input-field text-sm cursor-pointer"
                   >
                     <option value="">Pilih Provinsi...</option>
-                    {daftarProvinsi.map((prov) => (
-                      <option key={prov} value={prov}>{prov}</option>
+                    {regionOptions.provinces.map((prov) => (
+                      <option key={prov.code} value={prov.code}>{prov.name}</option>
                     ))}
                   </select>
                 ) : (
                   <p className="font-medium text-gray-800 py-3 px-4 bg-gray-50 rounded-lg text-sm">
-                    {form.province || '-'}
+                    {regionName(regionOptions.provinces, form.province) || '-'}
                   </p>
                 )}
               </div>
@@ -274,13 +312,13 @@ export default function ProfilWarga() {
                     className="input-field text-sm cursor-pointer disabled:bg-gray-100 disabled:text-gray-400"
                   >
                     <option value="">Pilih Kabupaten/Kota...</option>
-                    {daftarKabupaten.map((kab) => (
-                      <option key={kab} value={kab}>{kab}</option>
+                    {regionOptions.regencies.map((kab) => (
+                      <option key={kab.code} value={kab.code}>{kab.name}</option>
                     ))}
                   </select>
                 ) : (
                   <p className="font-medium text-gray-800 py-3 px-4 bg-gray-50 rounded-lg text-sm">
-                    {form.regency || '-'}
+                    {regionName(regionOptions.regencies, form.regency) || '-'}
                   </p>
                 )}
               </div>
@@ -304,13 +342,13 @@ export default function ProfilWarga() {
                     className="input-field text-sm cursor-pointer disabled:bg-gray-100 disabled:text-gray-400"
                   >
                     <option value="">Pilih Kecamatan...</option>
-                    {daftarKecamatan.map((kec) => (
-                      <option key={kec} value={kec}>{kec}</option>
+                    {regionOptions.districts.map((kec) => (
+                      <option key={kec.code} value={kec.code}>{kec.name}</option>
                     ))}
                   </select>
                 ) : (
                   <p className="font-medium text-gray-800 py-3 px-4 bg-gray-50 rounded-lg text-sm">
-                    {form.district || '-'}
+                    {regionName(regionOptions.districts, form.district) || '-'}
                   </p>
                 )}
               </div>
@@ -330,13 +368,13 @@ export default function ProfilWarga() {
                     className="input-field text-sm cursor-pointer disabled:bg-gray-100 disabled:text-gray-400"
                   >
                     <option value="">Pilih Desa/Kelurahan...</option>
-                    {daftarDesa.map((des) => (
-                      <option key={des} value={des}>{des}</option>
+                    {regionOptions.villages.map((des) => (
+                      <option key={des.code} value={des.code}>{des.name}</option>
                     ))}
                   </select>
                 ) : (
                   <p className="font-medium text-gray-800 py-3 px-4 bg-gray-50 rounded-lg text-sm">
-                    {form.village || '-'}
+                    {regionName(regionOptions.villages, form.village) || '-'}
                   </p>
                 )}
               </div>
@@ -353,7 +391,7 @@ export default function ProfilWarga() {
                     className="input-field text-sm cursor-pointer"
                   >
                     <option value="">Pilih RW...</option>
-                    {opsiRTRW.map((no) => (
+                    {Array.from({ length: 20 }, (_, i) => String(i + 1).padStart(2, '0')).map((no) => (
                       <option key={no} value={no}>RW {no}</option>
                     ))}
                   </select>
@@ -376,7 +414,7 @@ export default function ProfilWarga() {
                     className="input-field text-sm cursor-pointer"
                   >
                     <option value="">Pilih RT...</option>
-                    {opsiRTRW.map((no) => (
+                    {Array.from({ length: 20 }, (_, i) => String(i + 1).padStart(2, '0')).map((no) => (
                       <option key={no} value={no}>RT {no}</option>
                     ))}
                   </select>

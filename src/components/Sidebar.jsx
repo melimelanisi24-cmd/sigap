@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { MoonIcon, SunIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../context/ThemeContext';
+import { useApp } from '../context/AppContext';
 
 const menuItems = [
   {
@@ -50,8 +51,8 @@ const menuItems = [
     ),
   },
   {
-    path: '/admin/pengguna',
-    label: 'Manajemen Pengguna',
+    path: '/admin/warga',
+    label: 'Warga',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -68,11 +69,21 @@ const menuItems = [
       </svg>
     ),
   },
+  {
+    path: '/admin/profil',
+    label: 'Profil Saya',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    ),
+  },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const { user } = useApp();
 
   const isActive = (item) => {
     if (item.exact) return location.pathname === item.path;
@@ -131,9 +142,6 @@ export default function Sidebar({ isOpen, onClose }) {
                     {item.icon}
                   </span>
                   {item.label}
-                  {item.label === 'Data Pengaduan' && (
-                    <span className="ml-auto bg-primary-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">14</span>
-                  )}
                 </Link>
               </li>
             ))}
@@ -152,8 +160,8 @@ export default function Sidebar({ isOpen, onClose }) {
           >
             <span className="flex items-center gap-2 text-sm">
               {theme === 'dark'
-                ? <MoonIcon className="h-4 w-4" aria-hidden="true" />
-                : <SunIcon className="h-4 w-4" aria-hidden="true" />}
+                ? <SunIcon className="h-4 w-4" aria-hidden="true" />
+                : <MoonIcon className="h-4 w-4" aria-hidden="true" />}
               Dark Mode
             </span>
             <span className={`relative h-5 w-9 rounded-full transition-colors ${theme === 'dark' ? 'bg-primary-500' : 'bg-white/25'}`}>
@@ -162,11 +170,11 @@ export default function Sidebar({ isOpen, onClose }) {
           </button>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary-500/30 rounded-full flex items-center justify-center">
-              <span className="text-primary-300 font-semibold text-xs">A</span>
+              <span className="text-primary-300 font-semibold text-xs">{user?.name?.charAt(0)?.toUpperCase() || '?'}</span>
             </div>
             <div>
-              <p className="text-white text-xs font-medium">Admin SIGAP</p>
-              <p className="text-white/40 text-[10px]">admin@sigap.go.id</p>
+              <p className="text-white text-xs font-medium">{user?.name || 'Pengelola SIGAP'}</p>
+              <p className="text-white/40 text-[10px]">{user?.role || ''}</p>
             </div>
           </div>
         </div>

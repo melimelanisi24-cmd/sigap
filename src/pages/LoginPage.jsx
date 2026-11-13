@@ -1,17 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { apiRequest } from '../utils/api';
-import {
-  getDaftarProvinsi,
-  getDaftarKabupaten,
-  getDaftarKecamatan,
-  getDaftarDesa,
-  opsiRTRW,
-} from '../data/wilayahData';
+import { listRegions } from '../services/regions';
+import { getRoleHomePath } from '../utils/roles';
 
 export default function LoginPage() {
-  const { handleLogin } = useApp();
+  const { handleLogin, handleRegister } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') === 'register' ? 'register' : 'login';
   const [form, setForm] = useState({
@@ -20,21 +14,62 @@ export default function LoginPage() {
     name: '',
     nik: '',
     confirmPassword: '',
-    province: 'Jawa Barat',
-    regency: 'Sukabumi',
-    district: 'Kalapanunggal',
-    village: 'Kalapanunggal',
-    rw: '02',
-    rt: '03',
+    phone: '',
+    province: '',
+    regency: '',
+    district: '',
+    village: '',
+    rw: '',
+    rt: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [regionOptions, setRegionOptions] = useState({ provinces: [], regencies: [], districts: [], villages: [] });
   const navigate = useNavigate();
 
-  const daftarProvinsi = getDaftarProvinsi();
-  const daftarKabupaten = form.province ? getDaftarKabupaten(form.province) : [];
-  const daftarKecamatan = form.province && form.regency ? getDaftarKecamatan(form.province, form.regency) : [];
-  const daftarDesa = form.province && form.regency && form.district ? getDaftarDesa(form.province, form.regency, form.district) : [];
+  useEffect(() => {
+    let active = true;
+    listRegions('province')
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, provinces: regions })); })
+      .catch((err) => { if (active) setError(`Master data provinsi gagal dimuat: ${err.message}`); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.province) {
+      setRegionOptions((current) => ({ ...current, regencies: [], districts: [], villages: [] }));
+      return () => { active = false; };
+    }
+    listRegions('regency', form.province)
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, regencies: regions })); })
+      .catch((err) => { if (active) setError(`Master data kabupaten/kota gagal dimuat: ${err.message}`); });
+    return () => { active = false; };
+  }, [form.province]);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.regency) {
+      setRegionOptions((current) => ({ ...current, districts: [], villages: [] }));
+      return () => { active = false; };
+    }
+    listRegions('district', form.regency)
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, districts: regions })); })
+      .catch((err) => { if (active) setError(`Master data kecamatan gagal dimuat: ${err.message}`); });
+    return () => { active = false; };
+  }, [form.regency]);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.district) {
+      setRegionOptions((current) => ({ ...current, villages: [] }));
+      return () => { active = false; };
+    }
+    listRegions('village', form.district)
+      .then((regions) => { if (active) setRegionOptions((current) => ({ ...current, villages: regions })); })
+      .catch((err) => { if (active) setError(`Master data desa/kelurahan gagal dimuat: ${err.message}`); });
+    return () => { active = false; };
+  }, [form.district]);
 
   // Reset error saat ganti tab (dilakukan di event handler, bukan effect)
   const switchTab = (newTab) => {
@@ -59,63 +94,16 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. Coba login ke API backend MySQL
-      const res = await apiRequest('/auth/login.php', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-        }),
-      });
-
-      if (res && res.success && res.data) {
-        handleLogin(res.data);
-        if (res.data.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
-        return;
-      }
-      throw new Error(res?.message || 'Login gagal.');
+      const { profile } = await handleLogin(form.email.trim(), form.password);
+      navigate(getRoleHomePath(profile.role));
     } catch (err) {
-      // Jika salah password / salah email dari database
-      if (err.message && (err.message.includes('salah') || err.message.includes('Password'))) {
-        setError(err.message);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Fallback offline / demo jika server MySQL/Apache belum dinyalakan
-      if (form.email === 'admin@sigap.go.id' && form.password === 'admin123') {
-        handleLogin({ id: 99, name: 'Admin SIGAP', email: form.email, role: 'admin' });
-        navigate('/admin');
-      } else if (form.email && form.password) {
-        handleLogin({
-          id: 'USR001',
-          name: 'Meli Meliani',
-          email: form.email,
-          role: 'warga',
-          nik: '3201234567890001',
-          phone: '081234567890',
-          province: 'Jawa Barat',
-          regency: 'Sukabumi',
-          district: 'Kalapanunggal',
-          village: 'Kalapanunggal',
-          rw: '02',
-          rt: '03',
-          address: 'RT 03 / RW 02, Kalapanunggal',
-        });
-        navigate('/dashboard');
-      } else {
-        setError(err.message || 'Email atau password salah.');
-      }
+      setError(err.message || 'Login Supabase gagal.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRegister = async (e) => {
+  const submitRegister = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -140,55 +128,14 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. Kirim data registrasi ke API MySQL
-      const res = await apiRequest('/auth/register.php', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          nik: form.nik,
-          password: form.password,
-          province: form.province,
-          regency: form.regency,
-          district: form.district,
-          village: form.village,
-          rw: form.rw,
-          rt: form.rt,
-        }),
-      });
-
-      if (res && res.success && res.data) {
-        handleLogin(res.data);
+      const result = await handleRegister(form);
+      if (result.session) {
         navigate('/dashboard');
-        return;
+      } else {
+        setError('Pendaftaran diterima. Periksa email Anda untuk konfirmasi, lalu masuk.');
       }
-      throw new Error(res?.message || 'Registrasi gagal.');
     } catch (err) {
-      // Jika email sudah terdaftar di database
-      if (err.message && err.message.includes('sudah terdaftar')) {
-        setError('Email ini sudah terdaftar. Silakan gunakan email lain atau masuk.');
-        setLoading(false);
-        return;
-      }
-
-      // 2. Fallback offline jika server belum dinyalakan
-      handleLogin({
-        id: 'USR' + String(Date.now()).slice(-4),
-        name: form.name,
-        email: form.email,
-        password: form.password,
-        role: 'warga',
-        nik: form.nik,
-        phone: '081234567890',
-        province: form.province,
-        regency: form.regency,
-        district: form.district,
-        village: form.village,
-        rw: form.rw,
-        rt: form.rt,
-        address: `RT ${form.rt} / RW ${form.rw}, ${form.village}`,
-      });
-      navigate('/dashboard');
+      setError(err.message || 'Registrasi Supabase gagal.');
     } finally {
       setLoading(false);
     }
@@ -257,16 +204,17 @@ export default function LoginPage() {
                   <p className="text-sm text-gray-500 mb-5">Masuk untuk mengakses dashboard SIGAP Anda.</p>
 
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Email atau Username
+                    Email
                   </label>
                   <input
-                    type="text"
+                    type="email"
                     name="email"
                     value={form.email}
                     onChange={handleChange}
                     placeholder="contoh@email.com"
                     className="input-field"
                     autoComplete="email"
+                    required
                   />
                 </div>
                 <div>
@@ -303,15 +251,9 @@ export default function LoginPage() {
                   ) : 'Masuk'}
                 </button>
 
-                {/* Demo hint */}
-                <div className="mt-4 p-3 bg-gray-50 rounded-xl text-xs text-gray-500 space-y-1">
-                  <p className="font-semibold text-gray-600">Akun demo:</p>
-                  <p>🟢 <strong>Warga</strong> — Email apa saja + password apa saja</p>
-                  <p>🔴 <strong>Admin</strong> — admin@sigap.go.id / admin123</p>
-                </div>
               </form>
             ) : (
-              <form onSubmit={handleRegister} className="space-y-4">
+              <form onSubmit={submitRegister} className="space-y-4">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900 mb-1">Buat Akun Baru</h2>
                   <p className="text-sm text-gray-500 mb-5">Daftarkan diri sebagai warga pengguna SIGAP.</p>
@@ -404,8 +346,8 @@ export default function LoginPage() {
                           className="input-field text-sm !py-2 cursor-pointer"
                         >
                           <option value="">Pilih Provinsi...</option>
-                          {daftarProvinsi.map((prov) => (
-                            <option key={prov} value={prov}>{prov}</option>
+                          {regionOptions.provinces.map((prov) => (
+                            <option key={prov.code} value={prov.code}>{prov.name}</option>
                           ))}
                         </select>
                       </div>
@@ -430,8 +372,8 @@ export default function LoginPage() {
                           className="input-field text-sm !py-2 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400"
                         >
                           <option value="">Pilih Kabupaten/Kota...</option>
-                          {daftarKabupaten.map((kab) => (
-                            <option key={kab} value={kab}>{kab}</option>
+                          {regionOptions.regencies.map((kab) => (
+                            <option key={kab.code} value={kab.code}>{kab.name}</option>
                           ))}
                         </select>
                       </div>
@@ -457,8 +399,8 @@ export default function LoginPage() {
                           className="input-field text-sm !py-2 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400"
                         >
                           <option value="">Pilih Kecamatan...</option>
-                          {daftarKecamatan.map((kec) => (
-                            <option key={kec} value={kec}>{kec}</option>
+                          {regionOptions.districts.map((kec) => (
+                            <option key={kec.code} value={kec.code}>{kec.name}</option>
                           ))}
                         </select>
                       </div>
@@ -478,8 +420,8 @@ export default function LoginPage() {
                           className="input-field text-sm !py-2 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400"
                         >
                           <option value="">Pilih Desa/Kelurahan...</option>
-                          {daftarDesa.map((des) => (
-                            <option key={des} value={des}>{des}</option>
+                          {regionOptions.villages.map((des) => (
+                            <option key={des.code} value={des.code}>{des.name}</option>
                           ))}
                         </select>
                       </div>
@@ -497,7 +439,7 @@ export default function LoginPage() {
                           className="input-field text-sm !py-2 cursor-pointer"
                         >
                           <option value="">Pilih RW...</option>
-                          {opsiRTRW.map((no) => (
+                          {Array.from({ length: 20 }, (_, i) => String(i + 1).padStart(2, '0')).map((no) => (
                             <option key={no} value={no}>RW {no}</option>
                           ))}
                         </select>
@@ -514,7 +456,7 @@ export default function LoginPage() {
                           className="input-field text-sm !py-2 cursor-pointer"
                         >
                           <option value="">Pilih RT...</option>
-                          {opsiRTRW.map((no) => (
+                          {Array.from({ length: 20 }, (_, i) => String(i + 1).padStart(2, '0')).map((no) => (
                             <option key={no} value={no}>RT {no}</option>
                           ))}
                         </select>

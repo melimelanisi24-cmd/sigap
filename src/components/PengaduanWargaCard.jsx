@@ -12,7 +12,7 @@ import {
   UserGroupIcon,
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
-import { getStatusWilayahBadge, kategoriConfig } from '../data/pengaduanWargaData';
+import { getStatusWilayahBadge, kategoriConfig } from '../data/communityData';
 import { formatTanggal } from '../utils/helpers';
 
 const categoryIcons = {

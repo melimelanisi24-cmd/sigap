@@ -4,10 +4,7 @@ import { useApp } from '../context/AppContext';
 import Navbar from '../components/Navbar';
 import PengaduanWargaCard from '../components/PengaduanWargaCard';
 import ModalDetailPengaduanWarga from '../components/ModalDetailPengaduanWarga';
-import {
-  dataPengaduanWargaSekitar,
-  filterCommunityComplaints,
-} from '../data/pengaduanWargaData';
+import { filterCommunityComplaints } from '../data/communityData';
 
 const scopeOptions = [
   'Wilayah Saya',
@@ -22,7 +19,7 @@ const scopeOptions = [
 const statusTabs = ['Semua', 'Terbaru', 'Dalam Proses', 'Selesai'];
 
 export default function PengaduanWargaPage() {
-  const { user, handleLogout, pengaduanList } = useApp();
+  const { user, handleLogout, communityPengaduan, dataLoading } = useApp();
   const [scopeFilter, setScopeFilter] = useState('Wilayah Saya');
   const [selectedAreaValue, setSelectedAreaValue] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('Semua');
@@ -32,12 +29,7 @@ export default function PengaduanWargaPage() {
 
   const hasWilayah = Boolean(user?.village && user?.district);
 
-  const allComplaints = useMemo(() => {
-    const userCreatedWithWilayah = (pengaduanList || []).filter(
-      (p) => p.village && !dataPengaduanWargaSekitar.some((d) => d.id === p.id)
-    );
-    return [...userCreatedWithWilayah, ...dataPengaduanWargaSekitar];
-  }, [pengaduanList]);
+  const allComplaints = communityPengaduan;
 
   const territoryOptions = useMemo(() => {
     if (!allComplaints.length) return [];
@@ -338,7 +330,11 @@ export default function PengaduanWargaPage() {
             </div>
 
             {/* Grid Laporan Warga */}
-            {filteredData.length > 0 ? (
+            {dataLoading ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-sm text-gray-500 shadow-xs">
+                Memuat pengaduan...
+              </div>
+            ) : filteredData.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {filteredData.map((item) => (
                   <PengaduanWargaCard

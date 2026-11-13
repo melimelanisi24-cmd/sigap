@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { layananInfo } from '../data/dummy';
+import { layananInfo } from '../data/layananInfo';
 
 export default function LandingPage() {
   return (
@@ -48,19 +48,6 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            {/* Stats strip */}
-            <div className="mt-12 flex flex-wrap gap-8">
-              {[
-                { label: 'Pengaduan Diproses', value: '1.200+' },
-                { label: 'Warga Terdaftar', value: '8.500+' },
-                { label: 'Masalah Terselesaikan', value: '940+' },
-              ].map((s) => (
-                <div key={s.label}>
-                  <p className="text-2xl font-bold text-white">{s.value}</p>
-                  <p className="text-white/50 text-sm">{s.label}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </section>
@@ -132,7 +119,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">Siap Menyampaikan Aspirasi Anda?</h2>
           <p className="text-primary-100 mb-8 text-lg">
-            Bergabung dengan ribuan warga yang telah menggunakan SIGAP untuk membangun lingkungan yang lebih baik.
+            Sampaikan laporan dan gagasan untuk membantu membangun lingkungan yang lebih baik.
           </p>
           <Link
             to="/login?tab=register"
@@ -158,7 +145,7 @@ export default function LandingPage() {
                 <span className="font-bold text-white text-lg">SIGAP</span>
               </div>
               <p className="text-white/50 text-sm leading-relaxed">
-                Sistem InformasiPengaduan dan Aspirasi — Platform resmi penghubung warga dan pemerintah.
+                Sistem Informasi Pengaduan dan Aspirasi — Platform penghubung warga dan pemerintah.
               </p>
             </div>
             <div>
@@ -172,9 +159,8 @@ export default function LandingPage() {
             <div>
               <h4 className="font-semibold text-white mb-3">Kontak</h4>
               <ul className="space-y-2 text-white/50 text-sm">
-                <li>📧 info@sigap.go.id</li>
-                <li>📞 (022) 1234-5678</li>
-                <li>🏛️ Kantor Pemerintah Kota Bandung</li>
+                <li>Informasi pengaduan dan aspirasi warga</li>
+                <li>Hubungi kantor pemerintahan di wilayah Anda</li>
               </ul>
             </div>
           </div>
