@@ -266,6 +266,7 @@ export function AppProvider({ children }) {
       email: form.email,
       password: form.password,
       options: {
+        emailRedirectTo: `${window.location.origin}/login`,
         data: {
           full_name: form.name.trim(),
           phone: form.phone || '',
