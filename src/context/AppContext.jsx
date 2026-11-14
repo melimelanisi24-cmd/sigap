@@ -249,16 +249,36 @@ export function AppProvider({ children }) {
       setAuthLoading(false);
       throw new Error(getErrorMessage(error));
     }
-    const profile = await hydrateSession();
-    if (!profile) {
-      const { error: cleanupError } = await client.auth.signOut({ scope: 'local' });
-      if (cleanupError) {
-        throw new Error(`Profil akun gagal dimuat dan sesi tidak dapat diakhiri: ${getErrorMessage(cleanupError)}`);
+    try {
+      const profile = await loadProfile(data.user);
+      authHydrationId.current += 1;
+      setUser(profile);
+      setAuthError('');
+      setAuthLoading(false);
+      return { ...data, profile };
+    } catch (profileError) {
+      authHydrationId.current += 1;
+      setUser(null);
+      setPengaduanList([]);
+      setAspirasiList([]);
+      let cleanupError;
+      try {
+        const { error } = await client.auth.signOut({ scope: 'local' });
+        cleanupError = error;
+      } catch (error) {
+        cleanupError = error;
       }
-      throw new Error('Sesi berhasil dibuat, tetapi profil akun gagal dimuat.');
+      setAuthLoading(false);
+      const profileErrorMessage = `Profil akun tidak dapat dimuat: ${getErrorMessage(profileError)}`;
+      if (cleanupError) {
+        const errorMessage = `${profileErrorMessage}. Sesi tidak dapat diakhiri: ${getErrorMessage(cleanupError)}`;
+        setAuthError(errorMessage);
+        throw new Error(errorMessage);
+      }
+      setAuthError(profileErrorMessage);
+      throw new Error(profileErrorMessage);
     }
-    return { ...data, profile };
-  }, [hydrateSession]);
+  }, []);
 
   const handleRegister = useCallback(async (form) => {
     const client = requireSupabase();
