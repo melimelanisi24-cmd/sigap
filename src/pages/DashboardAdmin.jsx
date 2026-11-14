@@ -114,12 +114,12 @@ function DashboardHome() {
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
               Selamat datang, {user?.name || 'Admin'}
             </h1>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-white/70 sm:text-base">
+            <p className="mt-2 max-w-xl text-sm leading-6 text-white/80 sm:text-base">
               Pantau laporan warga dan prioritaskan pengaduan yang membutuhkan tindak lanjut.
             </p>
           </div>
           <div className="flex flex-col items-start gap-3 sm:items-end">
-            <p className="text-sm text-white/70">Ringkasan aktivitas layanan warga</p>
+            <p className="text-sm text-white/80">Ringkasan aktivitas layanan warga</p>
             <Link
               to="/admin/pengaduan"
               className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-navy-700 shadow-sm transition hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy-700"
