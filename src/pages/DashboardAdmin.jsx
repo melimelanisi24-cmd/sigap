@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import {
+  ArrowDownTrayIcon,
   ArrowRightIcon,
+  ChartBarIcon,
   CheckCircleIcon,
   ClipboardDocumentListIcon,
   ClockIcon,
   ExclamationTriangleIcon,
   LightBulbIcon,
   MapPinIcon,
+  TagIcon,
   UserGroupIcon,
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
@@ -533,6 +536,8 @@ function KategoriPengaduan() {
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const activeCategoryCount = categories.filter((category) => category.is_active).length;
 
   const complaintCounts = useMemo(() => pengaduanList.reduce((counts, complaint) => {
     counts[complaint.kategori] = (counts[complaint.kategori] || 0) + 1;
@@ -545,6 +550,8 @@ function KategoriPengaduan() {
       setError('');
     } catch (loadError) {
       setError(`Kategori gagal dimuat: ${loadError.message}`);
+    } finally {
+      setCategoriesLoading(false);
     }
   };
   useEffect(() => { void loadCategories(); }, [dataRevision]);
@@ -593,40 +600,128 @@ function KategoriPengaduan() {
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Kategori Pengaduan"
         subtitle="Kelola kategori aktif yang tersedia saat membuat pengaduan dan aspirasi"
+        action={
+          <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600">
+            <span className="h-2 w-2 rounded-full bg-primary-500" />
+            {categoriesLoading ? 'Memuat...' : `${activeCategoryCount} aktif`}
+          </span>
+        }
       />
-      {error && <p className="mb-4 text-sm text-red-600" role="alert">{error}</p>}
-      <form onSubmit={submitCategory} className="card mb-6 flex flex-col sm:flex-row gap-3">
-        <input value={name} onChange={(event) => setName(event.target.value)} className="input-field flex-1" placeholder="Nama kategori" aria-label="Nama kategori" />
-        <input value={icon} onChange={(event) => setIcon(event.target.value)} className="input-field w-full sm:w-24" placeholder="Ikon" aria-label="Ikon kategori" />
-        <button type="submit" disabled={saving || !name.trim()} className="btn-primary text-sm py-2 disabled:opacity-50">
-          {saving ? 'Menyimpan...' : editingId ? 'Simpan Perubahan' : 'Tambah Kategori'}
-        </button>
-        {editingId && <button type="button" onClick={resetForm} className="text-sm px-3 py-2 rounded-lg border border-gray-200">Batal</button>}
-      </form>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {categories.map((category) => (
-          <div key={category.id} className={`card flex items-center justify-between gap-3 group hover:shadow-md transition-all duration-200 ${!category.is_active ? 'opacity-60' : ''}`}>
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${category.color}`}>
-                {category.icon}
-              </div>
-              <div>
-                <p className="font-semibold text-gray-800">{category.name}</p>
-                <p className="text-xs text-gray-400">{complaintCounts[category.name] || 0} pengaduan · {category.is_active ? 'Aktif' : 'Nonaktif'}</p>
-              </div>
+      {error && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
+          <p>{error}</p>
+        </div>
+      )}
+      <form onSubmit={submitCategory} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+        <div className="mb-5">
+          <h2 className="font-bold text-gray-900">{editingId ? 'Ubah kategori' : 'Tambah kategori baru'}</h2>
+          <p className="mt-1 text-sm text-gray-500">Nama dan ikon akan tampil saat warga mengirim pengaduan atau aspirasi.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
+          <label htmlFor="category-name" className="block text-sm font-medium text-gray-700">
+            Nama kategori
+            <input
+              id="category-name"
+              value={name}
+              onChange={(event) => { setName(event.target.value); setError(''); }}
+              maxLength={80}
+              required
+              className="input-field mt-1.5"
+              placeholder="Contoh: Infrastruktur"
+            />
+          </label>
+          <label htmlFor="category-icon" className="block text-sm font-medium text-gray-700">
+            Ikon kategori
+            <div className="mt-1.5 flex items-center gap-2">
+              <input
+                id="category-icon"
+                value={icon}
+                onChange={(event) => { setIcon(event.target.value); setError(''); }}
+                maxLength={8}
+                className="input-field text-center"
+                placeholder="📋"
+              />
+              <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gray-50 text-2xl" aria-hidden="true">
+                {icon || '📋'}
+              </span>
             </div>
-            <div className="flex gap-1">
-              <button onClick={() => editCategory(category)} className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1.5 rounded-lg hover:bg-gray-200 transition-colors">Edit</button>
-              <button onClick={() => toggleCategory(category)} className="text-xs bg-red-50 text-red-600 px-2.5 py-1.5 rounded-lg hover:bg-red-100 transition-colors">{category.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>
-            </div>
+          </label>
+        </div>
+        <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-gray-500">Gunakan ikon sederhana agar mudah dikenali warga.</p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            {editingId && (
+              <button type="button" onClick={resetForm} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                Batal
+              </button>
+            )}
+            <button type="submit" disabled={saving || !name.trim()} className="btn-primary flex items-center justify-center gap-2 text-sm py-2 disabled:cursor-not-allowed disabled:opacity-50">
+              {saving ? 'Menyimpan...' : editingId ? 'Simpan perubahan' : 'Tambah kategori'}
+            </button>
           </div>
-        ))}
-        {!categories.length && !error && <p className="text-sm text-gray-500">Belum ada kategori.</p>}
-      </div>
+        </div>
+      </form>
+      <section>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-bold text-gray-900">Daftar kategori</h2>
+            <p className="mt-1 text-xs text-gray-500">{categoriesLoading ? 'Memuat daftar kategori...' : `${categories.length} kategori tersimpan`}</p>
+          </div>
+          {!categoriesLoading && <p className="text-xs text-gray-500">{categories.length - activeCategoryCount} nonaktif</p>}
+        </div>
+        {categoriesLoading ? (
+          <div className="rounded-2xl border border-gray-100 bg-white px-6 py-12 text-center text-sm text-gray-500 shadow-sm" role="status">
+            Memuat kategori...
+          </div>
+        ) : categories.length ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+            {categories.map((category) => (
+              <article key={category.id} className={`rounded-2xl border bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${category.is_active ? 'border-gray-100' : 'border-dashed border-gray-200'}`}>
+                <div className="flex items-start gap-3">
+                  <span className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl text-xl ${category.color || 'bg-gray-100 text-gray-600'}`} aria-hidden="true">
+                    {category.icon || '📋'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate font-semibold text-gray-800">{category.name}</h3>
+                    <span className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${category.is_active ? 'bg-primary-50 text-primary-700' : 'bg-gray-100 text-gray-600'}`}>
+                      {category.is_active ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-5 flex items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                  <p className="text-xs text-gray-500">{complaintCounts[category.name] || 0} pengaduan</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => editCategory(category)}
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(category)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${category.is_active ? 'border border-red-200 text-red-700 hover:bg-red-50' : 'border border-primary-200 text-primary-700 hover:bg-primary-50'}`}
+                    >
+                      {category.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : error ? null : (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+            <p className="text-sm font-semibold text-gray-700">Belum ada kategori</p>
+            <p className="mt-1 text-xs text-gray-500">Tambahkan kategori pertama menggunakan formulir di atas.</p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -644,6 +739,13 @@ function Laporan() {
     .sort((a, b) => b.count - a.count);
   const maxMonthly = Math.max(...monthlyCounts, 1);
   const maxCategory = Math.max(...categories.map((category) => category.count), 1);
+  const totalRecentReports = monthlyCounts.reduce((total, count) => total + count, 0);
+  const leadingCategory = categories[0];
+  const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const formatMonth = (month) => {
+    const [year, monthNumber] = month.split('-');
+    return `${monthNames[Number(monthNumber) - 1]} ${year}`;
+  };
   const exportCsv = () => {
     const escapeCell = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
     const rows = [
@@ -677,62 +779,155 @@ function Laporan() {
     link.click();
     URL.revokeObjectURL(url);
   };
+  const summaryCards = [
+    {
+      label: 'Total pengaduan',
+      value: pengaduanList.length,
+      note: 'Pengaduan yang tercatat',
+      Icon: ClipboardDocumentListIcon,
+      iconClass: 'bg-blue-50 text-blue-700',
+    },
+    {
+      label: 'Total aspirasi',
+      value: aspirasiList.length,
+      note: 'Aspirasi yang tercatat',
+      Icon: LightBulbIcon,
+      iconClass: 'bg-violet-50 text-violet-700',
+    },
+    {
+      label: 'Kategori teratas',
+      value: leadingCategory?.name || '—',
+      note: leadingCategory ? `${leadingCategory.count} pengaduan` : 'Belum ada data',
+      Icon: TagIcon,
+      iconClass: 'bg-primary-50 text-primary-700',
+    },
+  ];
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Laporan"
         subtitle="Rekapitulasi data pengaduan dan aspirasi"
-        action={<button onClick={exportCsv} className="btn-primary text-sm py-2 flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Ekspor CSV
-        </button>}
+        action={
+          <button onClick={exportCsv} className="btn-primary flex items-center justify-center gap-2 whitespace-nowrap text-sm py-2">
+            <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" />
+            Ekspor CSV
+          </button>
+        }
       />
-      <div className="grid grid-cols-1 gap-6">
-        <div className="card">
-          <h3 className="font-bold text-gray-800 mb-4">Statistik Bulanan</h3>
-          <div className="space-y-3">
-            {months.map((month, index) => {
-              const count = monthlyCounts[index];
-              const pct = Math.round((count / maxMonthly) * 100);
-              return (
-                <div key={month} className="flex items-center gap-3">
-                  <span className="text-sm text-gray-600 w-32">{month}</span>
-                  <div className="flex-1 bg-gray-100 rounded-full h-2.5">
+      <section aria-label="Ringkasan laporan" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {summaryCards.map(({ label, value, note, Icon, iconClass }) => (
+          <article key={label} className="card flex items-center gap-4">
+            <span className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
+              <Icon className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-xs font-medium text-gray-500">{label}</span>
+              <span className="mt-1 block truncate text-xl font-bold text-gray-900" title={String(value)}>{dataLoading && !pengaduanList.length ? '...' : value}</span>
+              <span className="mt-1 block text-xs text-gray-400">{note}</span>
+            </span>
+          </article>
+        ))}
+      </section>
+
+      {dataLoading && (
+        <p className="text-sm text-gray-500" role="status">Memuat data laporan...</p>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <section className="card">
+          <header className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-bold text-gray-900">Tren pengaduan</h2>
+              <p className="mt-1 text-xs text-gray-500">Jumlah laporan selama enam bulan terakhir</p>
+            </div>
+            <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
+              {dataLoading && !pengaduanList.length ? '...' : totalRecentReports} laporan
+            </span>
+          </header>
+          {dataLoading && !pengaduanList.length ? (
+            <p className="py-10 text-center text-sm text-gray-500" role="status">Memuat grafik pengaduan...</p>
+          ) : months.length ? (
+            <div className="space-y-5">
+              {months.map((month, index) => {
+                const count = monthlyCounts[index];
+                const percentage = Math.round((count / maxMonthly) * 100);
+                return (
+                  <div key={month}>
+                    <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                      <span className="font-medium text-gray-700">{formatMonth(month)}</span>
+                      <span className="font-semibold tabular-nums text-gray-800">{count}</span>
+                    </div>
                     <div
-                      className="bg-primary-500 h-2.5 rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%` }}
-                    />
+                      className="h-2.5 overflow-hidden rounded-full bg-gray-100"
+                      role="progressbar"
+                      aria-label={`Pengaduan ${formatMonth(month)}`}
+                      aria-valuenow={count}
+                      aria-valuemin={0}
+                      aria-valuemax={maxMonthly}
+                    >
+                      <div className="h-full rounded-full bg-primary-500 transition-all duration-500" style={{ width: `${percentage}%` }} />
+                    </div>
                   </div>
-                  <span className="text-sm font-semibold text-gray-700 w-6 text-right">{count}</span>
-                </div>
-              );
-            })}
-            {!months.length && <p className="text-sm text-gray-500">Belum ada data pengaduan bulanan.</p>}
-            {dataLoading && <p className="text-sm text-gray-500">Memuat data...</p>}
-          </div>
-          <p className="text-xs text-gray-400 mt-4">Total aspirasi terdata: {aspirasiList.length}</p>
-        </div>
-        <div className="card">
-          <h3 className="font-bold text-gray-800 mb-4">Pengaduan per Kategori</h3>
-          <div className="space-y-3">
-            {categories.map((item) => (
-              <div key={item.name} className="flex items-center gap-3">
-                <span className="text-sm text-gray-600 w-32">{item.name}</span>
-                <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                  <div
-                    className="bg-navy-500 h-2.5 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.round((item.count / maxCategory) * 100)}%` }}
-                  />
-                </div>
-                <span className="text-sm font-semibold text-gray-700 w-6 text-right">{item.count}</span>
-              </div>
-            ))}
-            {!categories.length && <p className="text-sm text-gray-500">Belum ada pengaduan pada periode ini.</p>}
-          </div>
-        </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-gray-200 px-4 py-10 text-center">
+              <ChartBarIcon className="mx-auto h-8 w-8 text-gray-400" aria-hidden="true" />
+              <p className="mt-3 text-sm font-semibold text-gray-700">Belum ada data bulanan</p>
+              <p className="mt-1 text-xs text-gray-500">Grafik akan terisi setelah pengaduan warga tercatat.</p>
+            </div>
+          )}
+          <p className="mt-5 border-t border-gray-100 pt-4 text-xs text-gray-500">
+            Total aspirasi: <span className="font-semibold text-gray-700">{aspirasiList.length}</span>
+          </p>
+        </section>
+
+        <section className="card">
+          <header className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-bold text-gray-900">Pengaduan per kategori</h2>
+              <p className="mt-1 text-xs text-gray-500">Distribusi seluruh pengaduan yang tercatat</p>
+            </div>
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+              {categories.length} kategori
+            </span>
+          </header>
+          {dataLoading && !pengaduanList.length ? (
+            <p className="py-10 text-center text-sm text-gray-500" role="status">Memuat kategori laporan...</p>
+          ) : categories.length ? (
+            <div className="space-y-5">
+              {categories.map((item) => {
+                const percentage = Math.round((item.count / maxCategory) * 100);
+                return (
+                  <div key={item.name}>
+                    <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate font-medium text-gray-700" title={item.name}>{item.name}</span>
+                      <span className="flex-shrink-0 font-semibold tabular-nums text-gray-800">{item.count}</span>
+                    </div>
+                    <div
+                      className="h-2.5 overflow-hidden rounded-full bg-gray-100"
+                      role="progressbar"
+                      aria-label={`Pengaduan kategori ${item.name}`}
+                      aria-valuenow={item.count}
+                      aria-valuemin={0}
+                      aria-valuemax={maxCategory}
+                    >
+                      <div className="h-full rounded-full bg-blue-500 transition-all duration-500" style={{ width: `${percentage}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-gray-200 px-4 py-10 text-center">
+              <TagIcon className="mx-auto h-8 w-8 text-gray-400" aria-hidden="true" />
+              <p className="mt-3 text-sm font-semibold text-gray-700">Belum ada kategori laporan</p>
+              <p className="mt-1 text-xs text-gray-500">Distribusi kategori akan muncul setelah laporan tersedia.</p>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

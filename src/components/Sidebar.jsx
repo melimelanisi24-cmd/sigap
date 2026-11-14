@@ -150,32 +150,25 @@ export default function Sidebar({ isOpen, onClose }) {
 
         {/* Bottom info */}
         <div className="p-4 border-t border-white/10 flex-shrink-0">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={theme === 'dark'}
-            aria-label="Aktifkan Dark Mode"
-            onClick={toggleTheme}
-            className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 mb-4 text-white/80 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
-          >
-            <span className="flex items-center gap-2 text-sm">
-              {theme === 'dark'
-                ? <SunIcon className="h-4 w-4" aria-hidden="true" />
-                : <MoonIcon className="h-4 w-4" aria-hidden="true" />}
-              Dark Mode
-            </span>
-            <span className={`relative h-5 w-9 rounded-full transition-colors ${theme === 'dark' ? 'bg-primary-500' : 'bg-white/25'}`}>
-              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0.5'}`} />
-            </span>
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary-500/30 rounded-full flex items-center justify-center">
+          <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-2">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary-500/30">
               <span className="text-primary-300 font-semibold text-xs">{user?.name?.charAt(0)?.toUpperCase() || '?'}</span>
             </div>
-            <div>
-              <p className="text-white text-xs font-medium">{user?.name || 'Pengelola SIGAP'}</p>
-              <p className="text-white/40 text-[10px]">{user?.role || ''}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-white">{user?.name || 'Pengelola SIGAP'}</p>
+              <p className="mt-0.5 truncate text-[10px] text-white/60">{user?.role || ''}</p>
             </div>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+              title={theme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-white/75 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+            >
+              {theme === 'dark'
+                ? <SunIcon className="h-5 w-5" aria-hidden="true" />
+                : <MoonIcon className="h-5 w-5" aria-hidden="true" />}
+            </button>
           </div>
         </div>
       </aside>
