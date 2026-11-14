@@ -8,6 +8,13 @@
   body {
     @apply bg-gray-50 text-gray-900 font-sans antialiased;
   }
+
+  .admin-dashboard-shell,
+  .admin-dashboard-shell :where(*) {
+    transition-property: background-color, border-color, color, box-shadow;
+    transition-duration: 180ms;
+    transition-timing-function: ease;
+  }
 }
 
 @layer components {
@@ -644,19 +651,19 @@
 
 html[data-theme='dark'] {
   color-scheme: dark;
-  --app-bg: #0f1720;
-  --app-surface: #182432;
-  --app-surface-muted: #151f2b;
-  --app-surface-raised: #202e3c;
+  --app-bg: #0c131d;
+  --app-surface: #141f2b;
+  --app-surface-muted: #111b26;
+  --app-surface-raised: #1b2a38;
   --app-text: #f1f5f9;
   --app-text-secondary: #cbd5e1;
-  --app-text-muted: #9aaabd;
-  --app-border: #2a3948;
-  --app-border-strong: #3a4b5c;
+  --app-text-muted: #94a3b8;
+  --app-border: #273746;
+  --app-border-strong: #394b5e;
   --app-green: #22c55e;
   --app-green-soft: #153425;
   --app-navy: #9bbce5;
-  --app-shadow: rgba(0, 0, 0, 0.24);
+  --app-shadow: rgba(0, 0, 0, 0.32);
 }
 
 html {
@@ -734,20 +741,29 @@ html[data-theme='dark'] [class~='bg-gray-200'] {
   background-color: var(--app-surface-raised) !important;
 }
 
-html[data-theme='dark'] [class~='text-gray-900'],
-html[data-theme='dark'] [class~='text-gray-800'],
-html[data-theme='dark'] [class~='text-gray-700'],
+html[data-theme='dark'] [class~='text-gray-900'] {
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] [class~='text-gray-800'] {
+  color: #e2e8f0 !important;
+}
+
+html[data-theme='dark'] [class~='text-gray-700'] {
+  color: #d3deea !important;
+}
+
 html[data-theme='dark'] [class~='text-gray-600'] {
-  color: var(--app-text) !important;
+  color: #bdc9d6 !important;
 }
 
 html[data-theme='dark'] [class~='text-gray-500'] {
-  color: var(--app-text-secondary) !important;
+  color: #a8b7c7 !important;
 }
 
 html[data-theme='dark'] [class~='text-gray-400'],
 html[data-theme='dark'] [class~='text-gray-300'] {
-  color: var(--app-text-muted) !important;
+  color: #8798aa !important;
 }
 
 html[data-theme='dark'] [class~='border-gray-50'],
