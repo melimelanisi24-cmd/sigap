@@ -132,7 +132,7 @@ export default function LoginPage() {
       if (result.session) {
         navigate('/dashboard');
       } else {
-        setError('Pendaftaran diterima. Periksa email Anda untuk konfirmasi, lalu masuk.');
+        setError('Akun berhasil dibuat, tetapi sesi belum aktif. Nonaktifkan "Confirm email" di pengaturan Supabase agar pengguna dapat langsung masuk setelah mendaftar.');
       }
     } catch (err) {
       setError(err.message || 'Registrasi Supabase gagal.');
