@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Routes, Route, Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowRightIcon,
+  CheckCircleIcon,
+  ClipboardDocumentListIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  LightBulbIcon,
+  MapPinIcon,
+  UserGroupIcon,
+  WrenchScrewdriverIcon,
+} from '@heroicons/react/24/outline';
 import Sidebar from '../components/Sidebar';
-import { StatCard, StatusBadge, PageHeader } from '../components/UIComponents';
+import { StatusBadge, PageHeader } from '../components/UIComponents';
 import { formatTanggal } from '../utils/helpers';
 import DetailPengaduan from './DetailPengaduan';
 import { useApp } from '../context/AppContext';
@@ -16,7 +27,7 @@ import {
 // ─── Sub-pages ──────────────────────────────────────────────────────────────
 
 function DashboardHome() {
-  const { pengaduanList, updateStatusPengaduan, dataLoading, dataRevision } = useApp();
+  const { user, pengaduanList, updateStatusPengaduan, dataLoading, dataRevision } = useApp();
   const [stats, setStats] = useState(null);
   const [statsError, setStatsError] = useState('');
   const perluVerifikasi = pengaduanList.filter((p) => p.dbStatus === 'baru');
@@ -24,104 +35,266 @@ function DashboardHome() {
   useEffect(() => {
     let active = true;
     fetchAdminDashboardStats()
-      .then((result) => { if (active) setStats(result); })
+      .then((result) => {
+        if (!active) return;
+        setStats(result);
+        setStatsError('');
+      })
       .catch((error) => { if (active) setStatsError(error.message); });
     return () => { active = false; };
   }, [dataRevision, pengaduanList]);
 
   const statsData = stats || {};
+  const statsPending = !stats && !statsError;
+  const mainStats = [
+    {
+      label: 'Total pengaduan',
+      value: statsData.total_complaints,
+      note: 'Seluruh laporan warga',
+      Icon: ClipboardDocumentListIcon,
+      iconClass: 'bg-blue-50 text-blue-700',
+    },
+    {
+      label: 'Menunggu verifikasi',
+      value: statsData.new_complaints,
+      note: 'Perlu ditinjau admin',
+      Icon: ClockIcon,
+      iconClass: 'bg-amber-50 text-amber-700',
+    },
+    {
+      label: 'Sedang diproses',
+      value: statsData.processing_complaints,
+      note: 'Dalam penanganan',
+      Icon: WrenchScrewdriverIcon,
+      iconClass: 'bg-orange-50 text-orange-700',
+    },
+    {
+      label: 'Pengaduan selesai',
+      value: statsData.completed_complaints,
+      note: 'Berhasil ditangani',
+      Icon: CheckCircleIcon,
+      iconClass: 'bg-emerald-50 text-emerald-700',
+    },
+  ];
+  const secondaryStats = [
+    {
+      label: 'Total aspirasi',
+      value: statsData.total_aspirations,
+      Icon: LightBulbIcon,
+      href: '/admin/aspirasi',
+      iconClass: 'bg-violet-50 text-violet-700',
+    },
+    {
+      label: 'Warga terdaftar',
+      value: statsData.total_residents,
+      Icon: UserGroupIcon,
+      href: '/admin/pengguna',
+      iconClass: 'bg-indigo-50 text-indigo-700',
+    },
+    {
+      label: 'Perlu verifikasi',
+      value: perluVerifikasi.length,
+      Icon: ExclamationTriangleIcon,
+      href: '/admin/pengaduan',
+      iconClass: 'bg-rose-50 text-rose-700',
+    },
+  ];
 
   return (
-    <div>
-      <PageHeader title="Dashboard Admin" subtitle="Ringkasan data dan aktivitas pengaduan terbaru" />
-
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total Pengaduan" value={statsData.total_complaints ?? '—'} icon="📋" color="bg-blue-50 text-blue-500" subtext="Semua pengaduan masuk" />
-        <StatCard label="Pengaduan Baru" value={statsData.new_complaints ?? '—'} icon="⏳" color="bg-yellow-50 text-yellow-500" subtext="Menunggu verifikasi" />
-        <StatCard label="Sedang Diproses" value={statsData.processing_complaints ?? '—'} icon="⚙️" color="bg-orange-50 text-orange-500" subtext="Dalam penanganan" />
-        <StatCard label="Selesai" value={statsData.completed_complaints ?? '—'} icon="✅" color="bg-green-50 text-green-500" subtext="Berhasil ditangani" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Total Aspirasi" value={statsData.total_aspirations ?? '—'} icon="💡" color="bg-purple-50 text-purple-500" />
-        <StatCard label="Warga Terdaftar" value={statsData.total_residents ?? '—'} icon="👥" color="bg-indigo-50 text-indigo-500" />
-        <StatCard label="Perlu Verifikasi" value={perluVerifikasi.length} icon="🔍" color="bg-red-50 text-red-500" subtext="Segera ditindaklanjuti" />
-      </div>
-      {statsError && <p className="mb-4 text-sm text-red-600" role="alert">Statistik gagal dimuat: {statsError}</p>}
-
-      {/* Pengaduan Terbaru */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-800">Pengaduan Terbaru</h3>
-          <Link to="/admin/pengaduan" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-            Lihat semua →
-          </Link>
+    <div className="mx-auto max-w-[1600px] space-y-6">
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-navy-600 via-navy-700 to-slate-900 p-6 text-white shadow-lg shadow-navy-900/10 sm:p-8">
+        <div className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full bg-primary-400/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 right-1/3 h-24 w-24 rounded-full bg-white/5 blur-2xl" />
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-2xl">
+            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/85">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary-300" />
+              Panel pengelola SIGAP
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              Selamat datang, {user?.name || 'Admin'}
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-white/70 sm:text-base">
+              Pantau laporan warga dan prioritaskan pengaduan yang membutuhkan tindak lanjut.
+            </p>
+          </div>
+          <div className="flex flex-col items-start gap-3 sm:items-end">
+            <p className="text-sm text-white/70">Ringkasan aktivitas layanan warga</p>
+            <Link
+              to="/admin/pengaduan"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-navy-700 shadow-sm transition hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-navy-700"
+            >
+              Kelola pengaduan
+              <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kode Pengaduan</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Judul / Pelapor</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kategori</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {pengaduanList.slice(0, 10).map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50 transition-colors cursor-pointer">
-                  <td className="px-4 py-3 text-xs font-mono text-gray-500 whitespace-nowrap">{item.complaintCode}</td>
-                  <td className="px-4 py-3">
-                    <Link to={`/admin/pengaduan/${item.id}`} className="font-medium text-gray-800 text-sm hover:text-primary-600 transition-colors">{item.judul}</Link>
-                    <p className="text-xs text-gray-400">{item.pelapor}</p>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{item.kategori}</td>
-                  <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={item.dbStatus === 'baru' ? 'Menunggu Verifikasi' : item.status === 'Dalam Proses' ? 'Sedang Diproses' : item.status} /></td>
-                  <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatTanggal(item.tanggal)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </section>
 
-      {/* Perlu Verifikasi */}
-      <div className="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-red-100 bg-red-50">
-          <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-          <h3 className="font-bold text-red-700">Laporan Perlu Verifikasi</h3>
-          <span className="ml-auto bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
-            {perluVerifikasi.length} laporan
-          </span>
+      {statsError && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
+          <p>Statistik gagal dimuat: {statsError}</p>
         </div>
-        <div className="divide-y divide-gray-100">
-          {perluVerifikasi.map((item) => (
-            <div key={item.id} className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
-              <div className="flex-1 min-w-0 mr-4">
-                <p className="font-medium text-gray-800 text-sm">{item.judul}</p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {item.pelapor} · {formatTanggal(item.tanggal)} · {item.lokasi}
-                </p>
+      )}
+
+      <section aria-label="Ringkasan pengaduan" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {mainStats.map(({ label, value, note, Icon, iconClass }) => (
+          <article key={label} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+            <div className="flex items-start justify-between gap-3">
+              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${iconClass}`}>
+                <Icon className="h-5 w-5" aria-hidden="true" />
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                onClick={() => updateStatusPengaduan(item.id, 'diverifikasi', 'Pengaduan diverifikasi oleh admin.')}
-                  className="text-xs bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 transition-colors font-medium"
-                >
-                  Verifikasi
-                </button>
-                <button
-                  onClick={() => updateStatusPengaduan(item.id, 'ditolak', 'Pengaduan ditolak oleh admin.')}
-                  className="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                >
-                  Tolak
-                </button>
-              </div>
+              <span className="rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-500">Ringkasan</span>
             </div>
-          ))}
-          {dataLoading && <p className="px-5 py-4 text-sm text-gray-500">Memuat data pengaduan...</p>}
-        </div>
+            <p className="mt-5 text-3xl font-bold tracking-tight text-gray-900">
+              {statsPending ? '...' : value ?? '—'}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-gray-700">{label}</p>
+            <p className="mt-1 text-xs text-gray-400">{note}</p>
+          </article>
+        ))}
+      </section>
+
+      <section aria-label="Akses ringkasan lainnya" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {secondaryStats.map(({ label, value, Icon, href, iconClass }) => (
+          <Link
+            key={label}
+            to={href}
+            className="group flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-primary-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          >
+            <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
+              <Icon className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-medium text-gray-500">{label}</span>
+              <span className="mt-0.5 block text-lg font-bold text-gray-900">
+                {label === 'Perlu verifikasi' ? value : statsPending ? '...' : value ?? '—'}
+              </span>
+            </span>
+            <ArrowRightIcon className="h-4 w-4 flex-shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-primary-600" aria-hidden="true" />
+          </Link>
+        ))}
+      </section>
+
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.9fr)]">
+        <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 sm:px-6">
+            <div>
+              <h2 className="font-bold text-gray-900">Pengaduan terbaru</h2>
+              <p className="mt-1 text-xs text-gray-500">Laporan warga yang masuk ke SIGAP</p>
+            </div>
+            <Link to="/admin/pengaduan" className="inline-flex items-center gap-1 text-sm font-semibold text-primary-700 hover:text-primary-800">
+              Lihat semua
+              <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
+          {dataLoading && !pengaduanList.length ? (
+            <div className="px-6 py-12 text-center text-sm text-gray-500" role="status">Memuat pengaduan...</div>
+          ) : pengaduanList.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[680px]">
+                <caption className="sr-only">Sepuluh pengaduan terbaru</caption>
+                <thead className="bg-gray-50/80">
+                  <tr>
+                    <th scope="col" className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Kode</th>
+                    <th scope="col" className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Pengaduan</th>
+                    <th scope="col" className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                    <th scope="col" className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Tanggal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {pengaduanList.slice(0, 10).map((item) => (
+                    <tr key={item.id} className="transition-colors hover:bg-gray-50/80">
+                      <td className="whitespace-nowrap px-5 py-4 text-xs font-medium text-gray-500">{item.complaintCode}</td>
+                      <td className="px-5 py-4">
+                        <Link to={`/admin/pengaduan/${item.id}`} className="block truncate text-sm font-semibold text-gray-800 transition hover:text-primary-700">
+                          {item.judul}
+                        </Link>
+                        <p className="mt-1 truncate text-xs text-gray-400">{item.pelapor} · {item.kategori}</p>
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-4">
+                        <StatusBadge status={item.dbStatus === 'baru' ? 'Menunggu Verifikasi' : item.status === 'Dalam Proses' ? 'Sedang Diproses' : item.status} />
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-4 text-xs text-gray-500">{formatTanggal(item.tanggal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center px-6 py-12 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 text-gray-400">
+                <ClipboardDocumentListIcon className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <p className="mt-3 text-sm font-semibold text-gray-700">Belum ada pengaduan</p>
+              <p className="mt-1 text-xs text-gray-500">Pengaduan baru dari warga akan muncul di sini.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 sm:px-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <h2 className="font-bold text-gray-900">Perlu verifikasi</h2>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">Tinjau sebelum ditindaklanjuti</p>
+            </div>
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
+              {perluVerifikasi.length}
+            </span>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {dataLoading && !pengaduanList.length ? (
+              <p className="px-5 py-8 text-center text-sm text-gray-500" role="status">Memuat antrean...</p>
+            ) : perluVerifikasi.length ? (
+              perluVerifikasi.slice(0, 5).map((item) => (
+                <article key={item.id} className="px-5 py-4 transition-colors hover:bg-gray-50/80">
+                  <Link to={`/admin/pengaduan/${item.id}`} className="font-semibold text-sm text-gray-800 hover:text-primary-700">
+                    {item.judul}
+                  </Link>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                    <MapPinIcon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+                    <span className="truncate">{item.lokasi || item.village || item.regency || 'Wilayah belum tersedia'}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400">{item.pelapor} · {formatTanggal(item.tanggal)}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => updateStatusPengaduan(item.id, 'diverifikasi', 'Pengaduan diverifikasi oleh admin.')}
+                      className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                    >
+                      Verifikasi
+                    </button>
+                    <button
+                      onClick={() => updateStatusPengaduan(item.id, 'ditolak', 'Pengaduan ditolak oleh admin.')}
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                    >
+                      Tolak
+                    </button>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="flex flex-col items-center px-5 py-10 text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+                  <CheckCircleIcon className="h-6 w-6" aria-hidden="true" />
+                </span>
+                <p className="mt-3 text-sm font-semibold text-gray-700">Antrean sudah bersih</p>
+                <p className="mt-1 text-xs text-gray-500">Tidak ada pengaduan yang menunggu verifikasi.</p>
+              </div>
+            )}
+          </div>
+          {perluVerifikasi.length > 5 && (
+            <div className="border-t border-gray-100 px-5 py-3">
+              <Link to="/admin/pengaduan" className="text-xs font-semibold text-primary-700 hover:text-primary-800">
+                Lihat {perluVerifikasi.length - 5} laporan lainnya
+                <span aria-hidden="true"> →</span>
+              </Link>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
